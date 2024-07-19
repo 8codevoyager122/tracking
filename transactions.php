@@ -4,7 +4,7 @@ require_once 'connection.php';
 
 // Check if the user is logged in, redirect to login page if not
 if (!isset($_SESSION['username'])) {
-    header("Location: /index.php"); // Adjust the path as per your login page location
+    header("Location: /login.php"); // Adjust the path as per your login page location
     exit;
 }
 
@@ -108,7 +108,7 @@ $categories = $stmt_categories->fetchAll();
             </div>
                 <div class="mb-4">
                     <label for="amount" class="block text-sm font-medium text-gray-700">Amount</label>
-                    <input type="number" id="amount" name="amount" class="border border-gray-300 rounded-lg px-3 py-2 w-full">
+                    <input type="number" step="any" id="amount" name="amount" class="border border-gray-300 rounded-lg px-3 py-2 w-full">
                 </div>
                 <div class="flex justify-end">
                     <button type="submit" id="saveTransactionBtn" class="bg-green-500 text-white px-6 py-2 rounded-lg">Save Transaction</button>
@@ -131,28 +131,48 @@ $categories = $stmt_categories->fetchAll();
         });
 
         document.getElementById('reportsBtn').addEventListener('click', function() {
-            window.location.href = "#";
+            window.location.href = "reports.php";
         });
         document.getElementById('logoutBtn').addEventListener('click', function() {
             window.location.href = "logout.php";
         });
-    // JavaScript to handle modal and form submission
-    document.getElementById('addTransactionBtn').addEventListener('click', function() {
-        document.getElementById('modalTitle').textContent = 'Add New Transaction';
-        document.getElementById('transactionId').value = '';
-        document.getElementById('transactionNumber').value = '';
-        document.getElementById('date').value = '';
-        document.getElementById('category').value = '';
-        document.getElementById('amount').value = '';
-        document.getElementById('transactionModal').classList.remove('hidden');
-    });
+        
+    // Modal handling for adding and editing transactions
+        document.getElementById('addTransactionBtn').addEventListener('click', function() {
+            document.getElementById('modalTitle').textContent = 'Add New Transaction';
+            document.getElementById('transactionId').value = '';
+            document.getElementById('transactionNumber').value = '';
+            document.getElementById('date').value = '';
+            document.getElementById('category').value = '';
+            document.getElementById('amount').value = '';
+            document.getElementById('transactionModal').classList.remove('hidden');
+        });
 
-    document.getElementById('closeModal').addEventListener('click', function() {
-        document.getElementById('transactionModal').classList.add('hidden');
-    });
+        document.getElementById('closeModal').addEventListener('click', function() {
+            document.getElementById('transactionModal').classList.add('hidden');
+        });
 
-    // Handle form submission for both add and edit
-    document.getElementById('transactionForm').addEventListener('submit', function(event) {
+        // Handle edit button click
+        document.querySelectorAll('.edit-btn').forEach(item => {
+            item.addEventListener('click', function() {
+                const transactionId = this.getAttribute('data-transaction-id');
+                const transaction = <?php echo json_encode($transactions); ?>;
+                const selectedTransaction = transaction.find(transaction => transaction.id == transactionId);
+
+                if (selectedTransaction) {
+                    document.getElementById('modalTitle').textContent = 'Edit Transaction';
+                    document.getElementById('transactionId').value = selectedTransaction.id;
+                    document.getElementById('transactionNumber').value = selectedTransaction.transaction_number;
+                    document.getElementById('date').value = selectedTransaction.transaction_date;
+                    document.getElementById('category').value = selectedTransaction.category;
+                    document.getElementById('amount').value = selectedTransaction.amount;
+                    document.getElementById('transactionModal').classList.remove('hidden');
+                }
+            });
+        });
+
+        // Form submission for adding and editing transactions
+document.getElementById('transactionForm').addEventListener('submit', function(event) {
         event.preventDefault();
         var transactionId = document.getElementById('transactionId').value;
         var url = transactionId ? '/update-transaction.php' : '/add-transaction.php';
@@ -183,28 +203,7 @@ $categories = $stmt_categories->fetchAll();
             alert('Failed to save transaction');
         });
     });
-
-    // Handle edit button clicks
-    document.querySelectorAll('.edit-btn').forEach(function(button) {
-        button.addEventListener('click', function() {
-            var transactionId = this.getAttribute('data-transaction-id');
-            document.getElementById('modalTitle').textContent = 'Edit Transaction';
-            document.getElementById('transactionId').value = transactionId;
-
-            // Example: Prefill form fields with existing transaction data for editing
-            var transaction = findTransactionById(transactionId); // Replace with actual logic to fetch transaction details
-            if (transaction) {
-                document.getElementById('transactionNumber').value = transaction.transaction_number;
-                document.getElementById('date').value = transaction.transaction_date;
-                document.getElementById('category').value = transaction.category;
-                document.getElementById('amount').value = transaction.amount;
-                document.getElementById('transactionModal').classList.remove('hidden');
-            } else {
-                alert('Transaction not found!');
-            }
-        });
-    });
-
+    
     // Handle delete button clicks
     document.querySelectorAll('.delete-btn').forEach(function(button) {
         button.addEventListener('click', function() {
@@ -235,10 +234,28 @@ $categories = $stmt_categories->fetchAll();
         });
     });
 
-    // Example function to find transaction details by ID (replace with actual logic)
-    function findTransactionById(transactionId) {
-        // Example: Loop through transactions array to find the specific transaction
-        var transactions = <?php echo json_encode($transactions); ?>;
-        return transactions.find(transaction => transaction.id == transactionId);
-    }
+    // Function to handle search transactions
+function searchTransactions() {
+    var input = document.getElementById('searchTransactionInput').value.trim().toLowerCase();
+    var rows = document.querySelectorAll('tbody tr');
+
+    rows.forEach(function(row) {
+        var transactionNumber = row.cells[0].textContent.trim().toLowerCase();
+        var date = row.cells[1].textContent.trim().toLowerCase();
+        var category = row.cells[2].textContent.trim().toLowerCase();
+        var amount = row.cells[3].textContent.trim().toLowerCase();
+
+        if (transactionNumber.includes(input) || date.includes(input) || category.includes(input) || amount.includes(input)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+// Event listener for search input
+document.getElementById('searchTransactionInput').addEventListener('input', function() {
+    searchTransactions();
+});
+
 </script>
