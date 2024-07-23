@@ -11,8 +11,6 @@ if (!isset($_SESSION['username'])) {
 // Initialize variables
 $Income = isset($_SESSION['Income']) ? floatval($_SESSION['Income']) : 0; // Manual income set by the user
 $user_id = $_SESSION['user_id'];
-$currentMonth = date('m');
-$currentYear = date('Y');
 
 // Get the start and end dates from the form submission if available
 $startDate = isset($_POST['start_date']) ? $_POST['start_date'] : date('Y-m-01');
@@ -20,20 +18,20 @@ $endDate = isset($_POST['end_date']) ? $_POST['end_date'] : date('Y-m-t');
 
 try {
     // Calculate total income from transactions
-    $stmtIncome = $pdo->prepare("SELECT SUM(amount) AS total_income FROM transactions WHERE user_id = :user_id AND MONTH(transaction_date) = :month AND YEAR(transaction_date) = :year AND category = 'income'");
-    $stmtIncome->execute(['user_id' => $user_id, 'month' => $currentMonth, 'year' => $currentYear]);
+    $stmtIncome = $pdo->prepare("SELECT SUM(amount) AS total_income FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date AND category = 'income'");
+    $stmtIncome->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
     $totalIncome = $stmtIncome->fetchColumn();
     $totalIncome = $totalIncome ? $totalIncome : 0;
 
     // Calculate total expenses from transactions
-    $stmtExpenses = $pdo->prepare("SELECT SUM(amount) AS total_expenses FROM transactions WHERE user_id = :user_id AND MONTH(transaction_date) = :month AND YEAR(transaction_date) = :year AND category = 'expense'");
-    $stmtExpenses->execute(['user_id' => $user_id, 'month' => $currentMonth, 'year' => $currentYear]);
+    $stmtExpenses = $pdo->prepare("SELECT SUM(amount) AS total_expenses FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date AND category = 'expense'");
+    $stmtExpenses->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
     $totalExpenses = $stmtExpenses->fetchColumn();
     $totalExpenses = $totalExpenses ? $totalExpenses : 0;
 
     // Calculate total outcome (sum of transactions)
-    $stmtOutcome = $pdo->prepare("SELECT SUM(amount) AS total_outcome FROM transactions WHERE user_id = :user_id AND MONTH(transaction_date) = :month AND YEAR(transaction_date) = :year");
-    $stmtOutcome->execute(['user_id' => $user_id, 'month' => $currentMonth, 'year' => $currentYear]);
+    $stmtOutcome = $pdo->prepare("SELECT SUM(amount) AS total_outcome FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date");
+    $stmtOutcome->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
     $totalOutcome = $stmtOutcome->fetchColumn();
     $totalOutcome = $totalOutcome ? $totalOutcome : 0;
 
@@ -42,6 +40,44 @@ try {
 
 } catch (PDOException $e) {
     echo "Error: " . $e->getMessage(); // Display any SQL errors
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = json_decode(file_get_contents('php://input'), true);
+
+    if (isset($data['Income'])) {
+        $Income = floatval($data['Income']);
+        $_SESSION['Income'] = $Income;
+
+        // Recalculate the total income and expenses with the new manual income
+        try {
+            $stmtIncome = $pdo->prepare("SELECT SUM(amount) AS total_income FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date AND category = 'income'");
+            $stmtIncome->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
+            $totalIncome = $stmtIncome->fetchColumn();
+            $totalIncome = $totalIncome ? $totalIncome : 0;
+            $totalIncome += $Income;
+
+            // Recalculate total expenses
+            $stmtExpenses = $pdo->prepare("SELECT SUM(amount) AS total_expenses FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date AND category = 'expense'");
+            $stmtExpenses->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
+            $totalExpenses = $stmtExpenses->fetchColumn();
+            $totalExpenses = $totalExpenses ? $totalExpenses : 0;
+
+            // Calculate total outcome (sum of transactions)
+            $stmtOutcome = $pdo->prepare("SELECT SUM(amount) AS total_outcome FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date");
+            $stmtOutcome->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
+            $totalOutcome = $stmtOutcome->fetchColumn();
+            $totalOutcome = $totalOutcome ? $totalOutcome : 0;
+            $totalOutcome += $Income;
+
+            echo json_encode(['message' => 'Income updated successfully', 'totalIncome' => $totalIncome, 'totalOutcome' => $totalOutcome]);
+        } catch (PDOException $e) {
+            echo json_encode(['error' => 'Error: ' . $e->getMessage()]);
+        }
+    } else {
+        echo json_encode(['error' => 'Invalid request']);
+    }
+    exit;
 }
 ?>
 
@@ -52,6 +88,14 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        .profit {
+            color: #38a169; /* Green for profit */
+        }
+        .loss {
+            color: #e53e3e; /* Red for loss */
+        }
+    </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900">
     <div class="flex flex-col min-h-screen">
@@ -62,8 +106,21 @@ try {
             </div>
         </header>
         
-        <!-- Main content section -->
         <main class="container mx-auto px-4 py-8">
+            <form method="POST" action="dashboard.php" class="mb-6">
+                <div class="flex space-x-4 mb-4">
+                    <div>
+                        <label for="start_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
+                        <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($startDate); ?>" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="end_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
+                        <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($endDate); ?>" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <button type="submit" class="self-end bg-blue-500 text-white py-2 px-4 rounded-md">Filter</button>
+                </div>
+            </form>
+
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <!-- Total Income -->
                 <div class="relative bg-green-100 dark:bg-green-800 rounded-lg shadow-md overflow-hidden">
@@ -74,8 +131,9 @@ try {
                         <h1 id="totalIncome" class="text-5xl justify-center items-center text-zinc-600 mx-16 my-16 text-gray-500 font-bold">$<?php echo number_format($totalIncome, 2); ?></h1>
                     </div>
                     <div class="p-4">
-                        <h3 class="text-lg font-semibold text-green-600 dark:text-green-300">Income</h3>
-                        <p class="text-sm text-zinc-600">Total income for the month:</p><p class="text-sm text-zinc-600" id="numba-this">$<?php echo number_format($totalIncome, 2); ?></p>
+                        <h3 class="text-lg font-semibold text-green-600 dark:text-blue-300">Income</h3>
+                        <p class="text-sm text-zinc-600">Total income for the selected date range:</p>
+                        <p class="text-sm text-zinc-600" id="numba-this">$<?php echo number_format($totalIncome, 2); ?></p>
                     </div>
                 </div>
 
@@ -86,21 +144,21 @@ try {
                     </div>
                     <div class="p-4">
                         <h3 class="text-lg font-semibold text-red-600 dark:text-red-300">Outcome</h3>
-                        <p class="text-sm text-zinc-600">Total expenses for the month: $<?php echo number_format($totalOutcome, 2); ?></p>
-                    </div>
-                </div>
-                 <div class="relative bg-green-100 dark:bg-green-800 rounded-lg shadow-md overflow-hidden">
-                    <div class="absolute top-0 right-0 p-4">
-                    </div>
-                    <div class="h-40 md:h-56 overflow-hidden">
-                        <h1 id="totalProfit" class="text-5xl justify-center items-center text-zinc-600 mx-16 my-16 text-gray-500 font-bold">$<?php echo number_format($totalIncome-$totalOutcome, 2); ?></h1>
-                    </div>
-                    <div class="p-4">
-                        <h3 class="text-lg font-semibold text-green-600 dark:text-green-300">Profit/Loss</h3>
-                        <p class="text-sm text-zinc-600">Total profit/loss for the month:</p><p class="text-sm text-zinc-600" id="numba-profit">$<?php echo number_format($totalIncome-$totalOutcome, 2); ?></p>
+                        <p class="text-sm text-zinc-600">Total expenses for the selected date range: $<?php echo number_format($totalOutcome, 2); ?></p>
                     </div>
                 </div>
 
+                <!-- Total Profit/Loss -->
+                <div class="relative bg-green-100 dark:bg-green-800 rounded-lg shadow-md overflow-hidden">
+                    <div class="h-40 md:h-56 overflow-hidden">
+                        <h1 id="totalProfit" class="text-5xl justify-center items-center text-zinc-600 mx-16 my-16 text-gray-500 font-bold">$<?php echo number_format($totalIncome - $totalOutcome, 2); ?></h1>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="text-lg font-semibold text-green-600 dark:text-green-300">Profit/Loss</h3>
+                        <p class="text-sm text-zinc-600">Total profit/loss for the selected date range:</p>
+                        <p class="text-sm text-zinc-600" id="numba-profit">$<?php echo number_format($totalIncome - $totalOutcome, 2); ?></p>
+                    </div>
+                </div>
             </div>
         </main>
         
@@ -113,7 +171,7 @@ try {
             <button id="logoutButton" class="bg-green-500 text-white py-2 px-4 rounded shadow-md">Logout</button>
         </div>
 
-        <!-- JavaScript to handle button clicks -->
+        <!-- JavaScript to handle button clicks and update colors -->
         <script>
             document.getElementById('dashboardButton').addEventListener('click', function() {
                 window.location.href = "dashboard.php"; // Refreshes the current page
@@ -134,83 +192,50 @@ try {
             document.getElementById('logoutButton').addEventListener('click', function() {
                 window.location.href = "logout.php";
             });
-function numberWithCommas(x) {
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
-// Handle Add Manual Income button click
-document.getElementById('addIncomeBtn').addEventListener('click', function() {
-    const Income = prompt('Enter income amount:');
-    if (Income) {
-        document.getElementById('totalIncome').innerText = '$' + numberWithCommas(parseFloat(Income).toFixed(2));
-        document.getElementById('numba-this').innerText = '$' +  numberWithCommas(parseFloat(Income).toFixed(2));
-        var outcome = parseFloat(document.getElementById('outcome-txt').innerHTML);
-        document.getElementById('totalProfit').innerText = '$' + numberWithCommas(parseFloat(Income-outcome).toFixed(2))
-                document.getElementById('numba-profit').innerText = '$' + numberWithCommas(parseFloat(Income-outcome).toFixed(2))
 
-        // Make the AJAX request to update the server-side data
-        fetch(window.location.href, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                Income: Income
-            }),
-        })
-     .then(response => response.json())
-     .then(data => {
-            if (data.error) {
-                alert(data.error);
-            } else {
-                alert(data.message);
+            function numberWithCommas(x) {
+                return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
             }
-        })
-     .catch((error) => {
-            console.error('Error:', error);
-        });
-    }
-});
+
+            function updateProfitLossColor(profit) {
+                console.log("Updating profit/loss color for profit: " + profit);
+                const profitElement = document.getElementById('totalProfit');
+                const profitTextElement = document.getElementById('numba-profit');
+                if (profit >= 0) {
+                    profitElement.classList.remove('loss');
+                    profitElement.classList.add('profit');
+                    profitTextElement.classList.remove('loss');
+                    profitTextElement.classList.add('profit');
+                } else {
+                    profitElement.classList.remove('profit');
+                    profitElement.classList.add('loss');
+                    profitTextElement.classList.remove('profit');
+                    profitTextElement.classList.add('loss');
+                }
+                console.log("Profit/Loss element class: " + profitElement.className);
+            }
+
+            // Handle Add Manual Income button click
+            document.getElementById('addIncomeBtn').addEventListener('click', function() {
+                const income = prompt('Enter income amount:');
+                if (income) {
+                    const formattedIncome = '$' + numberWithCommas(parseFloat(income).toFixed(2));
+                    document.getElementById('totalIncome').innerText = formattedIncome;
+                    document.getElementById('numba-this').innerText = formattedIncome;
+
+                    const outcome = parseFloat(document.getElementById('outcome-txt').innerText.replace(/[^0-9.-]+/g, ""));
+                    const profit = parseFloat(income) - outcome;
+                    document.getElementById('totalProfit').innerText = '$' + numberWithCommas(profit.toFixed(2));
+                    document.getElementById('numba-profit').innerText = '$' + numberWithCommas(profit.toFixed(2));
+                    
+                    updateProfitLossColor(profit);
+                }
+            });
+
+            // Initialize profit/loss color on page load
+            const initialProfit = parseFloat(document.getElementById('totalIncome').innerText.replace(/[^0-9.-]+/g, "")) - parseFloat(document.getElementById('outcome-txt').innerText.replace(/[^0-9.-]+/g, ""));
+            updateProfitLossColor(initialProfit);
         </script>
     </div>
 </body>
 </html>
-
-<?php
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $data = json_decode(file_get_contents('php://input'), true);
-
-    if (isset($data['Income'])) {
-        $Income = floatval($data['Income']);
-        $_SESSION['Income'] = $Income;
-
-        // Recalculate the total income and expenses with the new manual income
-        try {
-            $stmtIncome = $pdo->prepare("SELECT SUM(amount) AS total_income FROM transactions WHERE user_id = :user_id AND MONTH(transaction_date) = :month AND YEAR(transaction_date) = :year AND category = 'income'");
-            $stmtIncome->execute(['user_id' => $user_id, 'month' => $currentMonth, 'year' => $currentYear]);
-            $totalIncome = $stmtIncome->fetchColumn();
-            $totalIncome = $totalIncome ? $totalIncome : 0;
-            $totalIncome += $Income;
-
-            // Recalculate total expenses
-            $stmtExpenses = $pdo->prepare("SELECT SUM(amount) AS total_expenses FROM transactions WHERE user_id = :user_id AND MONTH(transaction_date) = :month AND YEAR(transaction_date) = :year AND category = 'expense'");
-            $stmtExpenses->execute(['user_id' => $user_id, 'month' => $currentMonth, 'year' => $currentYear]);
-            $totalExpenses = $stmtExpenses->fetchColumn();
-            $totalExpenses = $totalExpenses ? $totalExpenses : 0;
-
-            // Calculate total outcome (sum of transactions)
-            $stmtOutcome = $pdo->prepare("SELECT SUM(amount) AS total_outcome FROM transactions WHERE user_id = :user_id AND MONTH(transaction_date) = :month AND YEAR(transaction_date) = :year");
-            $stmtOutcome->execute(['user_id' => $user_id, 'month' => $currentMonth, 'year' => $currentYear]);
-            $totalOutcome = $stmtOutcome->fetchColumn();
-            $totalOutcome = $totalOutcome ? $totalOutcome : 0;
-            $totalOutcome += $Income;
-
-            echo json_encode(['message' => 'Income updated successfully', 'totalIncome' => $totalIncome, 'totalOutcome' => $totalOutcome]);
-        } catch (PDOException $e) {
-            echo json_encode(['error' => 'Error: ' . $e->getMessage()]);
-        }
-    } else {
-        echo json_encode(['error' => 'Invalid request']);
-    }
-    exit;
-}
-?>
