@@ -75,20 +75,32 @@ try {
                     </div>
                     <div class="p-4">
                         <h3 class="text-lg font-semibold text-green-600 dark:text-green-300">Income</h3>
-                        <p class="text-sm text-zinc-600">Total income for the month: $<?php echo number_format($totalIncome, 2); ?></p>
+                        <p class="text-sm text-zinc-600">Total income for the month:</p><p class="text-sm text-zinc-600" id="numba-this">$<?php echo number_format($totalIncome, 2); ?></p>
                     </div>
                 </div>
 
                 <!-- Total Outcome -->
                 <div class="relative bg-red-100 dark:bg-red-800 rounded-lg shadow-md overflow-hidden">
                     <div class="h-40 md:h-56 overflow-hidden">
-                        <h1 id="totalOutcome" class="text-5xl justify-center items-center text-zinc-600 mx-16 my-16 text-gray-500 font-bold">$<?php echo number_format($totalOutcome, 2); ?></h1>
+                        <h1 id="totalOutcome" class="text-5xl justify-center items-center text-zinc-600 mx-16 my-16 text-gray-500 font-bold">$<p id="outcome-txt" style="display: inline;"><?php echo number_format($totalOutcome, 2); ?></p></h1>
                     </div>
                     <div class="p-4">
                         <h3 class="text-lg font-semibold text-red-600 dark:text-red-300">Outcome</h3>
                         <p class="text-sm text-zinc-600">Total expenses for the month: $<?php echo number_format($totalOutcome, 2); ?></p>
                     </div>
                 </div>
+                 <div class="relative bg-green-100 dark:bg-green-800 rounded-lg shadow-md overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4">
+                    </div>
+                    <div class="h-40 md:h-56 overflow-hidden">
+                        <h1 id="totalProfit" class="text-5xl justify-center items-center text-zinc-600 mx-16 my-16 text-gray-500 font-bold">$<?php echo number_format($totalIncome-$totalOutcome, 2); ?></h1>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="text-lg font-semibold text-green-600 dark:text-green-300">Profit/Loss</h3>
+                        <p class="text-sm text-zinc-600">Total profit/loss for the month:</p><p class="text-sm text-zinc-600" id="numba-profit">$<?php echo number_format($totalIncome-$totalOutcome, 2); ?></p>
+                    </div>
+                </div>
+
             </div>
         </main>
         
@@ -122,12 +134,18 @@ try {
             document.getElementById('logoutButton').addEventListener('click', function() {
                 window.location.href = "logout.php";
             });
-
+function numberWithCommas(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
 // Handle Add Manual Income button click
 document.getElementById('addIncomeBtn').addEventListener('click', function() {
     const Income = prompt('Enter income amount:');
     if (Income) {
-        document.getElementById('totalIncome').innerText = '$' + parseFloat(Income).toFixed(2);
+        document.getElementById('totalIncome').innerText = '$' + numberWithCommas(parseFloat(Income).toFixed(2));
+        document.getElementById('numba-this').innerText = '$' +  numberWithCommas(parseFloat(Income).toFixed(2));
+        var outcome = parseFloat(document.getElementById('outcome-txt').innerHTML);
+        document.getElementById('totalProfit').innerText = '$' + numberWithCommas(parseFloat(Income-outcome).toFixed(2))
+                document.getElementById('numba-profit').innerText = '$' + numberWithCommas(parseFloat(Income-outcome).toFixed(2))
 
         // Make the AJAX request to update the server-side data
         fetch(window.location.href, {
