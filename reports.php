@@ -1,6 +1,6 @@
 <?php
-session_start(); // Ensure the session is started
-
+session_start();// Ensure the session is started
+$timezone = $_SESSION['time'];
 // Include your database connection or any necessary files
 require_once 'connection.php';
 // Check if the user is logged in, redirect to login page if not
@@ -45,11 +45,13 @@ function generateReport($startDate, $endDate) {
     $transactions = $stmt->fetchAll();
 
     // Example report generation logic without User ID
-    $report = "Transaction Report for User: " . $username . " from " . $startDate . " to " . $endDate . " Generated at " . date('Y-m-d H:i:s') . "\n\n";
+    $report = "Transaction Report for User: " . $username . " from " . $startDate . " to " . $endDate . " Generated at " . date('Y-m-d') . "\n\n";
+    $transaction_total = 0.00;
     foreach ($transactions as $transaction) {
         $report .= "Transaction Number: " . $transaction['transaction_number'] . ", Date: " . $transaction['transaction_date'] . ", Amount: $" . number_format($transaction['amount'], 2) . "\n";
+        $transaction_total += $transaction['amount'];
     }
-
+    $report .= "\n Total Amount is: $" . number_format($transaction_total, 2) . "\n";
     return $report;
 }
 
@@ -70,15 +72,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo nl2br(htmlspecialchars($reportContent)); // Display report on the page
             echo '</div>';
             echo '<div class="flex justify-center mb-4">';
-            echo '<a href="reports.php" class="report-button back-button">Back to Reports</a>'; // Add a back button
+            echo '<a href="reports.php" style="
+    background-color: #1deb1d;
+    padding: 2px;
+    color: black;
+    top: 10;
+    margin-top: 10px;" class="px-4 bg-green-300 report-button back-button">Back to Reports</a>'; // Add a back button
             echo '</div>';
             echo '</div>';
         } elseif ($_POST['action'] === 'download') {
             $filename = 'transaction_report_' . date('Y_m_d_H_i_s') . '.txt';
             
           if ($_POST['action'] === 'download') {
-    // Ensure the correct timezone is set
-    date_default_timezone_set(getUserTimeZone($_SESSION['user_id']));
+    
     
     $filename = 'transaction_report_' . date('Y_m_d_H_i_s') . '.txt';
 
@@ -86,6 +92,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: text/plain');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     echo $reportContent;
+    exit;
 }
 
 
