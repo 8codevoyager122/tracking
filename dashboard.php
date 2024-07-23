@@ -12,26 +12,27 @@ if (!isset($_SESSION['username'])) {
 $Income = isset($_SESSION['Income']) ? floatval($_SESSION['Income']) : 0; // Manual income set by the user
 $user_id = $_SESSION['user_id'];
 
-// Get the start and end dates from the form submission if available
-$startDate = isset($_POST['start_date']) ? $_POST['start_date'] : date('Y-m-01');
-$endDate = isset($_POST['end_date']) ? $_POST['end_date'] : date('Y-m-t');
+// Initialize total income, expenses, and outcome to 0
+$totalIncome = 0;
+$totalExpenses = 0;
+$totalOutcome = 0;
 
 try {
     // Calculate total income from transactions
-    $stmtIncome = $pdo->prepare("SELECT SUM(amount) AS total_income FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date AND category = 'income'");
-    $stmtIncome->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
+    $stmtIncome = $pdo->prepare("SELECT SUM(amount) AS total_income FROM transactions WHERE user_id = :user_id AND category = 'income'");
+    $stmtIncome->execute(['user_id' => $user_id]);
     $totalIncome = $stmtIncome->fetchColumn();
     $totalIncome = $totalIncome ? $totalIncome : 0;
 
     // Calculate total expenses from transactions
-    $stmtExpenses = $pdo->prepare("SELECT SUM(amount) AS total_expenses FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date AND category = 'expense'");
-    $stmtExpenses->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
+    $stmtExpenses = $pdo->prepare("SELECT SUM(amount) AS total_expenses FROM transactions WHERE user_id = :user_id AND category = 'expense'");
+    $stmtExpenses->execute(['user_id' => $user_id]);
     $totalExpenses = $stmtExpenses->fetchColumn();
     $totalExpenses = $totalExpenses ? $totalExpenses : 0;
 
     // Calculate total outcome (sum of transactions)
-    $stmtOutcome = $pdo->prepare("SELECT SUM(amount) AS total_outcome FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date");
-    $stmtOutcome->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
+    $stmtOutcome = $pdo->prepare("SELECT SUM(amount) AS total_outcome FROM transactions WHERE user_id = :user_id");
+    $stmtOutcome->execute(['user_id' => $user_id]);
     $totalOutcome = $stmtOutcome->fetchColumn();
     $totalOutcome = $totalOutcome ? $totalOutcome : 0;
 
@@ -51,21 +52,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Recalculate the total income and expenses with the new manual income
         try {
-            $stmtIncome = $pdo->prepare("SELECT SUM(amount) AS total_income FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date AND category = 'income'");
-            $stmtIncome->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
+            $stmtIncome = $pdo->prepare("SELECT SUM(amount) AS total_income FROM transactions WHERE user_id = :user_id AND category = 'income'");
+            $stmtIncome->execute(['user_id' => $user_id]);
             $totalIncome = $stmtIncome->fetchColumn();
             $totalIncome = $totalIncome ? $totalIncome : 0;
             $totalIncome += $Income;
 
             // Recalculate total expenses
-            $stmtExpenses = $pdo->prepare("SELECT SUM(amount) AS total_expenses FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date AND category = 'expense'");
-            $stmtExpenses->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
+            $stmtExpenses = $pdo->prepare("SELECT SUM(amount) AS total_expenses FROM transactions WHERE user_id = :user_id AND category = 'expense'");
+            $stmtExpenses->execute(['user_id' => $user_id]);
             $totalExpenses = $stmtExpenses->fetchColumn();
             $totalExpenses = $totalExpenses ? $totalExpenses : 0;
 
             // Calculate total outcome (sum of transactions)
-            $stmtOutcome = $pdo->prepare("SELECT SUM(amount) AS total_outcome FROM transactions WHERE user_id = :user_id AND transaction_date BETWEEN :start_date AND :end_date");
-            $stmtOutcome->execute(['user_id' => $user_id, 'start_date' => $startDate, 'end_date' => $endDate]);
+            $stmtOutcome = $pdo->prepare("SELECT SUM(amount) AS total_outcome FROM transactions WHERE user_id = :user_id");
+            $stmtOutcome->execute(['user_id' => $user_id]);
             $totalOutcome = $stmtOutcome->fetchColumn();
             $totalOutcome = $totalOutcome ? $totalOutcome : 0;
             $totalOutcome += $Income;
@@ -80,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -99,7 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body class="bg-gray-100 dark:bg-gray-900">
     <div class="flex flex-col min-h-screen">
-        <!-- Header section -->
+        
         <header class="bg-white dark:bg-zinc-800 shadow-md">
             <div class="container mx-auto px-4 py-2 flex justify-between items-center">
                 <h1 class="text-lg font-semibold">Dashboard</h1>
@@ -110,14 +112,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <form method="POST" action="dashboard.php" class="mb-6">
                 <div class="flex space-x-4 mb-4">
                     <div>
-                        <label for="start_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
-                        <input type="date" id="start_date" name="start_date" value="<?php echo htmlspecialchars($startDate); ?>" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                     </div>
                     <div>
-                        <label for="end_date" class="block text-sm font-medium text-gray-700 dark:text-gray-300">End Date</label>
-                        <input type="date" id="end_date" name="end_date" value="<?php echo htmlspecialchars($endDate); ?>" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                     </div>
-                    <button type="submit" class="self-end bg-blue-500 text-white py-2 px-4 rounded-md">Filter</button>
+                    
                 </div>
             </form>
 
