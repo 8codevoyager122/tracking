@@ -132,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <div class="p-4">
                         <h3 class="text-lg font-semibold text-green-600 dark:text-blue-300">Income</h3>
-                        <p class="text-sm text-zinc-600">Total income for the selected date range:</p>
+                        <p class="text-sm text-zinc-600">Total income for the month:</p>
                         <p class="text-sm text-zinc-600" id="numba-this">$<?php echo number_format($totalIncome, 2); ?></p>
                     </div>
                 </div>
@@ -144,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <div class="p-4">
                         <h3 class="text-lg font-semibold text-red-600 dark:text-red-300">Outcome</h3>
-                        <p class="text-sm text-zinc-600">Total expenses for the selected date range: $<?php echo number_format($totalOutcome, 2); ?></p>
+                        <p class="text-sm text-zinc-600">Total expenses for the month: $<?php echo number_format($totalOutcome, 2); ?></p>
                     </div>
                 </div>
 
@@ -155,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <div class="p-4">
                         <h3 class="text-lg font-semibold text-green-600 dark:text-green-300">Profit/Loss</h3>
-                        <p class="text-sm text-zinc-600">Total profit/loss for the selected date range:</p>
+                        <p class="text-sm text-zinc-600">Total profit/loss for the month:</p>
                         <p class="text-sm text-zinc-600" id="numba-profit">$<?php echo number_format($totalIncome - $totalOutcome, 2); ?></p>
                     </div>
                 </div>
