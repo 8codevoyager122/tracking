@@ -149,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <!-- Total Profit/Loss -->
                 <div class="relative bg-green-100 dark:bg-green-800 rounded-lg shadow-md overflow-hidden">
                     <div class="h-40 md:h-56 overflow-hidden">
-                        <h1 id="totalProfit" class="text-5xl justify-center items-center text-zinc-600 mx-16 my-16 text-gray-500 font-bold">$<?php echo number_format($totalIncome - $totalOutcome, 2); ?></h1>
+                        <h1 id="totalProfit" class="text-5xl justify-center items-center text-zinc-600 mx-16 my-16 text-gray-500 font-bold">$<?php echo number_format($totalIncome - $totalOutcome, 2); ?></p></h1>
                     </div>
                     <div class="p-4">
                         <h3 class="text-lg font-semibold text-green-600 dark:text-green-300">Profit/Loss</h3>
